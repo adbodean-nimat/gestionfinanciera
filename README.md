@@ -51,13 +51,13 @@ Creá un archivo `.env.local` en la raíz del proyecto:
 
 ```env
 VITE_API_BASE_URL=http://localhost:3000/api
-VITE_APP_VERSION=1.0.0
+VITE_APP_VERSION=1.0.0-beta.1
 ```
 
 | Variable | Descripción |
 | --- | --- |
 | `VITE_API_BASE_URL` | URL base del backend que expone los servicios de autenticación y gestión. |
-| `VITE_APP_VERSION` | Versión mostrada en la pantalla de configuración. Si se omite, se usa `1.0.0`. |
+| `VITE_APP_VERSION` | Versión mostrada en la pantalla de configuración. Si se omite, se usa `1.0.0-beta.1`. |
 
 ## Instalación y ejecución
 
