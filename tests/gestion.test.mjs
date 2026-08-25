@@ -237,6 +237,24 @@ test('el Drawer muestra los automáticos y calculados requeridos', async () => {
     assert.match(drawerSource, /manuales\.acopioCierreMes/)
 })
 
+test('la fecha se consulta recién al terminar la edición del input', async () => {
+    const drawerSource = await source('src/components/gestion/GestionDataDrawer.vue')
+    const dateInput = drawerSource.match(
+        /<Input[\s\S]*?id="fecha"[\s\S]*?\/>/
+    )?.[0] ?? ''
+
+    assert.match(drawerSource, /const dateDraft = ref\(''\)/)
+    assert.match(dateInput, /:model-value="dateDraft"/)
+    assert.match(dateInput, /@update:model-value="onDateInput\(String\(\$event\)\)"/)
+    assert.match(dateInput, /@blur="onDateCommit"/)
+    assert.doesNotMatch(dateInput, /@change="onDateCommit"/)
+    assert.doesNotMatch(dateInput, /@update:model-value="onDateChange/)
+    assert.match(
+        drawerSource,
+        /async function onDateCommit\(\)[\s\S]*?await changeDate\(dateDraft\.value\)/
+    )
+})
+
 test('el acopio al cierre del mes se carga manualmente y prevalece en el tablero', async () => {
     const composableSource = await source('src/composables/useGestion.ts')
     const mapperSource = await source('src/mappers/gestion.mapper.ts')
@@ -266,6 +284,24 @@ test('sincronizar automáticos no reemplaza el registro completo ni exige manual
     assert.doesNotMatch(syncBlock, /existingRecord\.value\s*=\s*registro/)
     assert.match(drawerSource, /record\?\.manuales\?\.ajusteCaja/)
     assert.match(typesSource, /data:\s*GestionAutomaticosApiData/)
+})
+
+test('el tablero sólo publica registros finalizados al guardar datos completos', async () => {
+    const composableSource = await source('src/composables/useGestion.ts')
+    const drawerSource = await source('src/components/gestion/GestionDataDrawer.vue')
+
+    assert.match(
+        composableSource,
+        /getGestionListado\([\s\S]*?\{ estado: 'GUARDADO', limit: 52, offset: 0 \}/
+    )
+    assert.match(composableSource, /function assertRequiredManualValues\(\)/)
+    assert.match(composableSource, /assertFiniteValues\(\)[\s\S]*?assertRequiredManualValues\(\)/)
+    assert.match(composableSource, /Completá los datos obligatorios antes de guardar/)
+    assert.match(
+        drawerSource,
+        /El tablero se actualizará únicamente después de guardarlos\./
+    )
+    assert.match(drawerSource, /emit\('saved', saved\)/)
 })
 
 test('normaliza la respuesta plana real de sincronización para el Drawer', () => {
@@ -532,8 +568,31 @@ test('la interfaz de Gestión respeta permisos efectivos', async () => {
 
     assert.match(dashboardSource, /hasPermission\('gestion\.editar'\)/)
     assert.match(dashboardSource, /hasPermission\('gestion\.configurar'\)/)
+    assert.match(
+        dashboardSource,
+        /const canConfigureCmv = computed\(\(\) =>[\s\S]*?hasPermission\('gestion\.editar'\) \|\| hasPermission\('gestion\.configurar'\)[\s\S]*?\)/
+    )
+    assert.match(dashboardSource, /<GestionCmvConfigDrawer[\s\S]*?v-if="canConfigureCmv"/)
+    assert.match(dashboardSource, /function saveCmvConfig[\s\S]*?if \(!canConfigureCmv\.value\) return/)
     assert.match(layoutSource, /hasPermission\('gestion\.administrar_usuarios'\)/)
     assert.match(layoutSource, /Administración de usuarios/)
+})
+
+test('la configuración automática carga y guarda únicamente la programación', async () => {
+    const serviceSource = await source('src/services/configuracion-general.api.ts')
+    const viewSource = await source('src/views/ConfiguracionGeneralView.vue')
+
+    assert.match(serviceSource, /GESTION_AUTOMATIC_SYNC_KEY = 'gestion_sincronizacion_automatica'/)
+    assert.match(serviceSource, /http\.get\('\/gestion\/configuracion-general'/)
+    assert.match(
+        serviceSource,
+        /http\.put\([\s\S]*?`\/gestion\/configuracion-general\/\$\{GESTION_AUTOMATIC_SYNC_KEY\}`,[\s\S]*?\{ valor: config \}/
+    )
+    assert.match(viewSource, /hasPermission\('gestion\.configurar'\)/)
+    assert.match(viewSource, /`\$\{Number\(match\[2\]\)\} \$\{Number\(match\[1\]\)\} \* \* \$\{automaticSyncDay\.value\}`/)
+    assert.match(viewSource, /Los cambios pueden tardar hasta 60 segundos en aplicarse y no requieren reiniciar la API\./)
+    assert.match(viewSource, /Guardar programación/)
+    assert.doesNotMatch(viewSource, /Ejecutar sincronización|Sincronizar ahora/)
 })
 
 test('el sidebar clásico no desborda el perfil al estar colapsado', async () => {

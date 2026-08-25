@@ -44,6 +44,7 @@ const emit = defineEmits<{
 const open = ref(false)
 const showAjusteCaja = ref(false)
 const showAjusteProveedores = ref(false)
+const dateDraft = ref('')
 
 const {
     selectedDate,
@@ -87,8 +88,18 @@ const statusVariant = computed(() => {
     return 'outline'
 })
 
-async function onDateChange(nextDate: string) {
-    await changeDate(nextDate)
+function onDateInput(nextDate: string) {
+    dateDraft.value = nextDate
+}
+
+async function onDateCommit() {
+    if (dateDraft.value === selectedDate.value) return
+
+    const changed = await changeDate(dateDraft.value)
+
+    if (!changed) {
+        dateDraft.value = selectedDate.value
+    }
 }
 
 async function checkExistingRecord() {
@@ -193,6 +204,14 @@ watch(existingRecord, (record) => {
         record?.manuales?.ajusteProveedoresAVencer !== null &&
         record?.manuales?.ajusteProveedoresAVencer !== undefined
 })
+
+watch(
+    selectedDate,
+    (date) => {
+        dateDraft.value = date
+    },
+    { immediate: true }
+)
 </script>
 
 <template>
@@ -244,10 +263,11 @@ watch(existingRecord, (record) => {
 
                                 <Input
                                     id="fecha"
-                                    :model-value="selectedDate"
+                                    :model-value="dateDraft"
                                     type="date"
                                     :disabled="isBusy"
-                                    @update:model-value="onDateChange(String($event))"
+                                    @update:model-value="onDateInput(String($event))"
+                                    @blur="onDateCommit"
                                 />
                             </div>
 
@@ -474,7 +494,7 @@ watch(existingRecord, (record) => {
                         <CardContent class="space-y-4">
                             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                                 <div class="space-y-2">
-                                    <Label>Bancos</Label>
+                                    <Label>Bancos <span class="text-destructive">*</span></Label>
                                     <Input
                                         :model-value="moneyInputValue(manuales.bancos)"
                                         type="number"
@@ -486,7 +506,7 @@ watch(existingRecord, (record) => {
                                 </div>
 
                                 <div class="space-y-2">
-                                    <Label>Bancos descubierto</Label>
+                                    <Label>Bancos descubierto <span class="text-destructive">*</span></Label>
                                     <Input
                                         :model-value="moneyInputValue(manuales.bancosDescubierto)"
                                         type="number"
@@ -501,7 +521,7 @@ watch(existingRecord, (record) => {
                                 </div>
 
                                 <div class="space-y-2">
-                                    <Label>OPV / Otros (manual)</Label>
+                                    <Label>OPV / Otros (manual) <span class="text-destructive">*</span></Label>
                                     <Input
                                         :model-value="moneyInputValue(manuales.opvOtros)"
                                         type="number"
@@ -516,7 +536,7 @@ watch(existingRecord, (record) => {
                                 </div>
 
                                 <div class="space-y-2">
-                                    <Label>Otros pagos / Impuestos proyectados</Label>
+                                    <Label>Otros pagos / Impuestos proyectados <span class="text-destructive">*</span></Label>
                                     <Input
                                         :model-value="moneyInputValue(manuales.otrosPagosProyectados)"
                                         type="number"
@@ -538,7 +558,7 @@ watch(existingRecord, (record) => {
                                 </div>
 
                                 <div class="space-y-2">
-                                    <Label>Anticipos proveedores</Label>
+                                    <Label>Anticipos proveedores <span class="text-destructive">*</span></Label>
                                     <Input
                                         :model-value="moneyInputValue(manuales.anticipos)"
                                         type="number"
@@ -550,7 +570,7 @@ watch(existingRecord, (record) => {
                                 </div>
 
                                 <div class="space-y-2">
-                                    <Label>Acopios proveedores</Label>
+                                    <Label>Acopios proveedores <span class="text-destructive">*</span></Label>
                                     <Input
                                         :model-value="moneyInputValue(manuales.acopiosEspeciales)"
                                         type="number"
@@ -562,7 +582,7 @@ watch(existingRecord, (record) => {
                                 </div>
 
                                 <div class="space-y-2">
-                                    <Label>Acopio al cierre del mes</Label>
+                                    <Label>Acopio al cierre del mes <span class="text-destructive">*</span></Label>
                                     <Input
                                         :model-value="moneyInputValue(manuales.acopioCierreMes)"
                                         type="number"
@@ -580,6 +600,10 @@ watch(existingRecord, (record) => {
                                     </p>
                                 </div>
                             </div>
+
+                            <p class="text-xs text-muted-foreground">
+                                <span class="text-destructive">*</span> Datos obligatorios. El tablero se actualizará únicamente después de guardarlos.
+                            </p>
 
                             <div class="space-y-2">
                                 <Label>Observación</Label>

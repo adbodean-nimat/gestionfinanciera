@@ -20,6 +20,25 @@ import {
     type GestionSavePayload,
 } from '@/types/gestion'
 
+const requiredManualFields: Array<{
+    field: Exclude<keyof GestionManuales, 'observacion'>
+    label: string
+}> = [
+    { field: 'bancos', label: 'Bancos' },
+    { field: 'bancosDescubierto', label: 'Bancos descubierto' },
+    { field: 'opvOtros', label: 'OPV / Otros' },
+    { field: 'otrosPagosProyectados', label: 'Otros pagos / Impuestos proyectados' },
+    { field: 'anticipos', label: 'Anticipos proveedores' },
+    { field: 'acopiosEspeciales', label: 'Acopios proveedores' },
+    { field: 'acopioCierreMes', label: 'Acopio al cierre del mes' },
+]
+
+function missingRequiredManualFields(manuales: GestionManuales): string[] {
+    return requiredManualFields
+        .filter(({ field }) => manuales[field] === null)
+        .map(({ label }) => label)
+}
+
 function messageFrom(error: unknown, fallback: string): string {
     return error instanceof Error ? error.message : fallback
 }
@@ -43,7 +62,7 @@ export function useGestionListado() {
 
         try {
             const response = await getGestionListado(
-                { limit: 52, offset: 0 },
+                { estado: 'GUARDADO', limit: 52, offset: 0 },
                 controller.signal
             )
 
@@ -182,6 +201,7 @@ export function useGestionDrawer() {
         cobranzasProyectadas.value = registro.calculados.cobranzasProyectadas
         applyingData = false
         steadyStatus.value = registro.existeEnPostgres
+            && missingRequiredManualFields(registro.manuales).length === 0
             ? 'guardado'
             : 'sincronizado'
         takeSnapshot()
@@ -338,8 +358,18 @@ export function useGestionDrawer() {
         }
     }
 
+    function assertRequiredManualValues() {
+        const missingFields = missingRequiredManualFields(manuales)
+        if (!missingFields.length) return
+
+        throw new Error(
+            `Completá los datos obligatorios antes de guardar: ${missingFields.join(', ')}.`
+        )
+    }
+
     function buildPayload(): GestionSavePayload {
         assertFiniteValues()
+        assertRequiredManualValues()
         const { otrosOpv: _otrosOpv, ...automaticosPersistibles } = automaticos
 
         return {

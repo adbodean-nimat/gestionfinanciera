@@ -114,8 +114,13 @@ function loadCmvConfig() {
 }
 
 const cmvConfig = ref(loadCmvConfig())
+const canConfigureCmv = computed(() =>
+    hasPermission('gestion.editar') || hasPermission('gestion.configurar')
+)
 
 function saveCmvConfig(config: { porcentaje: number; diasLaborales: number }) {
+    if (!canConfigureCmv.value) return
+
     cmvConfig.value = config
 
     try {
@@ -664,7 +669,7 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
                     @saved="handleGestionSaved"
                 />
                 <GestionCmvConfigDrawer
-                    v-if="hasPermission('gestion.configurar')"
+                    v-if="canConfigureCmv"
                     :porcentaje="cmvConfig.porcentaje"
                     :dias-laborales="cmvConfig.diasLaborales"
                     @save="saveCmvConfig"

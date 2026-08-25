@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
+    CalendarClock,
     Calculator,
     Check,
+    Clock3,
+    Globe2,
     Info,
+    LoaderCircle,
     Moon,
     Palette,
+    RefreshCw,
     Save,
     Settings,
     Sun,
@@ -24,8 +29,20 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { type Theme, useTheme } from '@/composables/useTheme'
+import {
+    getGestionAutomaticSyncConfig,
+    updateGestionAutomaticSyncConfig,
+} from '@/services/configuracion-general.api'
+import { hasPermission } from '@/services/auth'
 
 const CMV_CONFIG_STORAGE_KEY = 'gestion-finanzas:cmv-config'
 const defaultCmvConfig = {
@@ -38,6 +55,32 @@ const { theme, setTheme } = useTheme()
 const porcentajeDraft = ref(String(loadCmvConfig().porcentaje))
 const diasLaboralesDraft = ref(String(loadCmvConfig().diasLaborales))
 const validationError = ref<string | null>(null)
+const automaticSyncEnabled = ref(false)
+const automaticSyncDay = ref('5')
+const automaticSyncTime = ref('10:30')
+const automaticSyncTimezone = ref('America/Argentina/Buenos_Aires')
+const automaticSyncLoadError = ref<string | null>(null)
+const automaticSyncValidationError = ref<string | null>(null)
+const isAutomaticSyncLoading = ref(true)
+const isAutomaticSyncSaving = ref(false)
+
+const weekdays = [
+    { value: '1', label: 'Lunes' },
+    { value: '2', label: 'Martes' },
+    { value: '3', label: 'Miércoles' },
+    { value: '4', label: 'Jueves' },
+    { value: '5', label: 'Viernes' },
+    { value: '6', label: 'Sábado' },
+    { value: '0', label: 'Domingo' },
+]
+
+const canConfigure = computed(() => hasPermission('gestion.configurar'))
+const automaticSyncCron = computed(() => {
+    const match = /^(\d{2}):(\d{2})$/.exec(automaticSyncTime.value)
+    if (!match) return ''
+
+    return `${Number(match[2])} ${Number(match[1])} * * ${automaticSyncDay.value}`
+})
 
 const appearanceOptions: Array<{
     value: Theme
@@ -131,6 +174,74 @@ function saveCalculationSettings() {
     validationError.value = null
     toast.success('Configuración de cálculo guardada.')
 }
+
+function applyCron(cron: string): boolean {
+    const match = /^(\d{1,2})\s+(\d{1,2})\s+\*\s+\*\s+([0-6])$/.exec(cron.trim())
+    if (!match) return false
+
+    const minute = Number(match[1])
+    const hour = Number(match[2])
+    if (minute > 59 || hour > 23) return false
+
+    automaticSyncDay.value = match[3]
+    automaticSyncTime.value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+    return true
+}
+
+async function loadAutomaticSyncConfig() {
+    isAutomaticSyncLoading.value = true
+    automaticSyncLoadError.value = null
+
+    try {
+        const config = await getGestionAutomaticSyncConfig()
+        if (!applyCron(config.cron)) {
+            throw new Error('La programación guardada tiene una expresión cron no compatible.')
+        }
+        automaticSyncEnabled.value = config.activo
+        automaticSyncTimezone.value = config.timezone
+    } catch (error) {
+        automaticSyncLoadError.value = error instanceof Error
+            ? error.message
+            : 'No se pudo cargar la sincronización automática.'
+    } finally {
+        isAutomaticSyncLoading.value = false
+    }
+}
+
+async function saveAutomaticSyncConfig() {
+    if (!canConfigure.value || isAutomaticSyncSaving.value) return
+
+    const timezone = automaticSyncTimezone.value.trim()
+    if (!automaticSyncCron.value) {
+        automaticSyncValidationError.value = 'Seleccioná una hora válida.'
+        return
+    }
+    if (!timezone) {
+        automaticSyncValidationError.value = 'Ingresá una zona horaria.'
+        return
+    }
+
+    isAutomaticSyncSaving.value = true
+    automaticSyncValidationError.value = null
+
+    try {
+        await updateGestionAutomaticSyncConfig({
+            activo: automaticSyncEnabled.value,
+            cron: automaticSyncCron.value,
+            timezone,
+        })
+        automaticSyncTimezone.value = timezone
+        toast.success('Programación de sincronización guardada.')
+    } catch (error) {
+        toast.error(error instanceof Error
+            ? error.message
+            : 'No se pudo guardar la sincronización automática.')
+    } finally {
+        isAutomaticSyncSaving.value = false
+    }
+}
+
+onMounted(loadAutomaticSyncConfig)
 </script>
 
 <template>
@@ -163,6 +274,13 @@ function saveCalculationSettings() {
                     >
                         <Calculator class="size-4" />
                         Cálculos
+                    </a>
+                    <a
+                        href="#sincronizacion-automatica"
+                        class="mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                        <CalendarClock class="size-4" />
+                        Sincronización
                     </a>
                 </nav>
 
@@ -294,6 +412,139 @@ function saveCalculationSettings() {
                                     Guardar cambios
                                 </Button>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card id="sincronizacion-automatica" class="scroll-mt-20">
+                        <CardHeader>
+                            <CardTitle>Sincronización automática</CardTitle>
+                            <CardDescription>
+                                Programá cuándo se sincronizan y guardan los datos de Plataforma.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div v-if="isAutomaticSyncLoading" class="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                                <LoaderCircle class="size-4 animate-spin" />
+                                Cargando programación…
+                            </div>
+
+                            <div v-else-if="automaticSyncLoadError" class="flex flex-col items-center rounded-lg border border-destructive/30 bg-destructive/5 px-6 py-8 text-center">
+                                <p class="font-medium">No pudimos cargar la programación</p>
+                                <p class="mt-1 max-w-md text-sm text-muted-foreground">
+                                    {{ automaticSyncLoadError }}
+                                </p>
+                                <Button class="mt-4" variant="outline" @click="loadAutomaticSyncConfig">
+                                    <RefreshCw class="mr-2 size-4" />
+                                    Reintentar
+                                </Button>
+                            </div>
+
+                            <form v-else class="space-y-6" @submit.prevent="saveAutomaticSyncConfig">
+                                <label class="flex cursor-pointer items-center justify-between gap-4 rounded-lg border p-4">
+                                    <span>
+                                        <span class="block text-sm font-medium">Proceso automático</span>
+                                        <span class="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                                            {{ automaticSyncEnabled ? 'La sincronización se ejecutará según la programación.' : 'La programación se conserva, pero no se ejecutará.' }}
+                                        </span>
+                                    </span>
+                                    <input
+                                        v-model="automaticSyncEnabled"
+                                        type="checkbox"
+                                        role="switch"
+                                        class="size-4 shrink-0 rounded border-input accent-emerald-700"
+                                        :disabled="isAutomaticSyncSaving || !canConfigure"
+                                        @change="automaticSyncValidationError = null"
+                                    >
+                                </label>
+
+                                <div class="grid gap-5 sm:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <Label for="automatic-sync-day">Día de la semana</Label>
+                                        <Select v-model="automaticSyncDay" :disabled="isAutomaticSyncSaving || !canConfigure">
+                                            <SelectTrigger id="automatic-sync-day" class="w-full">
+                                                <SelectValue placeholder="Seleccioná un día" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem
+                                                    v-for="weekday in weekdays"
+                                                    :key="weekday.value"
+                                                    :value="weekday.value"
+                                                >
+                                                    {{ weekday.label }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="automatic-sync-time">Hora</Label>
+                                        <div class="relative">
+                                            <Clock3 class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                            <Input
+                                                id="automatic-sync-time"
+                                                v-model="automaticSyncTime"
+                                                type="time"
+                                                step="60"
+                                                class="pl-9"
+                                                :disabled="isAutomaticSyncSaving || !canConfigure"
+                                                @input="automaticSyncValidationError = null"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <Label for="automatic-sync-timezone">Zona horaria</Label>
+                                    <div class="relative">
+                                        <Globe2 class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            id="automatic-sync-timezone"
+                                            v-model="automaticSyncTimezone"
+                                            class="pl-9"
+                                            placeholder="America/Argentina/Buenos_Aires"
+                                            autocomplete="off"
+                                            :disabled="isAutomaticSyncSaving || !canConfigure"
+                                            @input="automaticSyncValidationError = null"
+                                        />
+                                    </div>
+                                    <p class="text-xs text-muted-foreground">
+                                        Usá un identificador de zona horaria IANA.
+                                    </p>
+                                </div>
+
+                                <div class="rounded-lg border bg-muted/40 p-4">
+                                    <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                        Expresión cron
+                                    </p>
+                                    <code class="mt-1.5 block text-sm font-medium">{{ automaticSyncCron || '—' }}</code>
+                                </div>
+
+                                <div class="flex items-start gap-3 rounded-lg border border-blue-600/20 bg-blue-600/5 p-4 text-sm">
+                                    <Info class="mt-0.5 size-4 shrink-0 text-blue-700 dark:text-blue-400" />
+                                    <p class="leading-relaxed text-muted-foreground">
+                                        Los cambios pueden tardar hasta 60 segundos en aplicarse y no requieren reiniciar la API.
+                                    </p>
+                                </div>
+
+                                <p
+                                    v-if="automaticSyncValidationError"
+                                    role="alert"
+                                    class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+                                >
+                                    {{ automaticSyncValidationError }}
+                                </p>
+
+                                <div class="flex justify-end">
+                                    <Button
+                                        type="submit"
+                                        :disabled="isAutomaticSyncSaving || !canConfigure"
+                                    >
+                                        <LoaderCircle v-if="isAutomaticSyncSaving" class="mr-2 size-4 animate-spin" />
+                                        <Save v-else class="mr-2 size-4" />
+                                        Guardar programación
+                                    </Button>
+                                </div>
+                            </form>
                         </CardContent>
                     </Card>
                 </div>
