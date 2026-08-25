@@ -59,12 +59,17 @@ const router = createRouter({
       path: '/gestion-dashboard-01',
       redirect: '/tablero-01'
     },
-    {
-      path: '/gestion-prime',
-      name: 'gestion-prime',
-      component: () => import('@/views/GestionDashboardPrime.vue'),
-      meta: { requiresAuth: true },
-    }
+    ...(import.meta.env.DEV
+      ? [{
+          path: '/gestion-prime',
+          name: 'gestion-prime',
+          component: () => import('@/views/GestionDashboardPrime.vue'),
+          meta: { requiresAuth: true },
+        }]
+      : [{
+          path: '/gestion-prime',
+          redirect: '/tablero-01',
+        }]),
   ]
 })
 

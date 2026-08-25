@@ -20,7 +20,7 @@ Aplicación web para consultar, completar y analizar la información financiera 
 | `/login` | Inicio de sesión con credenciales de Windows. | Público |
 | `/tablero-01` | Tablero principal y pantalla inicial de la aplicación. | `gestion.consultar` |
 | `/tablero-02` | Versión alternativa del tablero basada en componentes shadcn-vue. | `gestion.consultar` |
-| `/gestion-prime` | Versión alternativa construida con PrimeVue. | `gestion.consultar` |
+| `/gestion-prime` | Versión de desarrollo construida con PrimeVue; en producción redirige al tablero principal. | `gestion.consultar` |
 | `/mi-cuenta` | Datos de la cuenta y permisos de la sesión actual. | `gestion.consultar` |
 | `/configuracion-general` | Preferencias generales y apariencia de la interfaz. | `gestion.configurar` |
 | `/administracion-usuarios` | Alta de usuarios y gestión de roles y estados. | `gestion.administrar_usuarios` |
@@ -50,14 +50,18 @@ El permiso `gestion.editar` habilita la sincronización, carga y guardado de inf
 Creá un archivo `.env.local` en la raíz del proyecto:
 
 ```env
-VITE_API_BASE_URL=http://localhost:3000/api
-VITE_APP_VERSION=1.0.0-beta.1
+VITE_API_BASE_URL=https://[IP_ADDRESS]/api
+VITE_APP_VERSION=1.0.0
 ```
+
+Podés partir de `.env.example`. Todas las variables con prefijo `VITE_` se
+incorporan al JavaScript que recibe el navegador: no guardes tokens, contraseñas
+ni otros secretos en ellas.
 
 | Variable | Descripción |
 | --- | --- |
 | `VITE_API_BASE_URL` | URL base del backend que expone los servicios de autenticación y gestión. |
-| `VITE_APP_VERSION` | Versión mostrada en la pantalla de configuración. Si se omite, se usa `1.0.0-beta.1`. |
+| `VITE_APP_VERSION` | Versión mostrada en la pantalla de configuración. Si se omite, se usa `1.0.0`. |
 
 ## Instalación y ejecución
 
@@ -74,6 +78,7 @@ Vite inicia el servidor de desarrollo y lo expone en la red local. La URL exacta
 | --- | --- |
 | `pnpm dev` | Inicia el entorno de desarrollo con recarga automática. |
 | `pnpm build` | Valida los tipos y genera la versión optimizada en `dist/`. |
+| `pnpm check` | Ejecuta pruebas, validación de tipos y build de producción. |
 | `pnpm preview` | Sirve localmente la compilación de producción. |
 | `pnpm typecheck` | Ejecuta la validación estática de TypeScript y componentes Vue. |
 | `pnpm test` | Ejecuta las pruebas automatizadas del dominio y la interfaz. |
@@ -111,6 +116,31 @@ public/                   Recursos estáticos e identidad visual
 ```
 
 En desarrollo, el tablero puede recurrir a datos simulados si no logra obtener el listado desde la API. Este respaldo no está habilitado en la compilación de producción.
+
+## Preparación para producción
+
+El repositorio usa `pnpm` como gestor canónico. Para obtener una instalación
+reproducible y generar el artefacto de publicación:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+```
+
+Publicá el contenido generado en `dist/`. El servidor web debe:
+
+- servir siempre por HTTPS;
+- redirigir las rutas de la SPA (por ejemplo `/tablero-01`) a `index.html`;
+- enrutar `VITE_API_BASE_URL` al backend y habilitar CORS sólo para el origen real
+  de la aplicación si frontend y API usan orígenes distintos;
+- aplicar encabezados de seguridad, como CSP, `X-Content-Type-Options`,
+  `Referrer-Policy` y `Permissions-Policy`, en la capa de hosting;
+- impedir el cacheo de `index.html` y permitir cache prolongado para los archivos
+  con hash bajo `assets/`.
+
+Antes de publicar, definí `VITE_API_BASE_URL` y `VITE_APP_VERSION` en el entorno
+de build. La autorización debe seguir validándose en el backend; los permisos de
+la interfaz sólo controlan la experiencia del usuario.
 
 ## Autor
 

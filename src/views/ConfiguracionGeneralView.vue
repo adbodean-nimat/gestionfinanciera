@@ -50,7 +50,7 @@ const defaultCmvConfig = {
     diasLaborales: 5.5,
 }
 
-const appVersion = import.meta.env.VITE_APP_VERSION ?? '1.0.0-beta.1'
+const appVersion = import.meta.env.VITE_APP_VERSION ?? '1.0.0'
 const { theme, setTheme } = useTheme()
 const porcentajeDraft = ref(String(loadCmvConfig().porcentaje))
 const diasLaboralesDraft = ref(String(loadCmvConfig().diasLaborales))

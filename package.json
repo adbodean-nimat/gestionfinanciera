@@ -1,11 +1,16 @@
 {
   "name": "tablero-gf",
   "private": true,
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0",
   "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "check": "pnpm test && pnpm typecheck && pnpm build",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "typecheck": "vue-tsc -b",
     "preview": "vite preview"

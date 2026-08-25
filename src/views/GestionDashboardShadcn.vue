@@ -58,7 +58,6 @@ import {
     VisBulletLegend,
 } from '@unovis/vue'
 
-import { gestionMock } from '@/data/gestion.mock'
 import { formatCurrency, formatNumber } from '@/lib/formatters'
 import { buildGestionAlerts } from '@/lib/gestionAlerts'
 import { setGestionAlerts } from '@/composables/useGestionAlerts'
@@ -154,7 +153,10 @@ async function loadDashboard() {
     }
 }
 
-function useMockFallback() {
+async function useMockFallback() {
+    if (!canUseMockFallback) return
+
+    const { gestionMock } = await import('@/data/gestion.mock')
     dashboardData.value = gestionMock.map(mapLegacyMockRow).map(
         mapGestionRegistroToDashboard
     )
