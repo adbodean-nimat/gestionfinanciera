@@ -17,6 +17,7 @@ node_modules
 dist
 dist-ssr
 *.local
+*.production
 
 # Editor directories and files
 .pnpm-store/*
