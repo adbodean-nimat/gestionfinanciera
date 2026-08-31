@@ -279,10 +279,14 @@ test('sincronizar automáticos no reemplaza el registro completo ni exige manual
 
     assert.ok(syncBlock)
     assert.match(syncBlock, /Object\.assign\(automaticos, registro\.automaticos\)/)
+    assert.match(syncBlock, /manuales\.opvOtros === null/)
     assert.match(syncBlock, /manuales\.opvOtros = registro\.automaticos\.otrosOpv/)
     assert.match(syncBlock, /registro\.automaticos\.otrosOpv !== null/)
     assert.doesNotMatch(syncBlock, /existingRecord\.value\s*=\s*registro/)
     assert.match(drawerSource, /record\?\.manuales\?\.ajusteCaja/)
+    assert.match(drawerSource, /showAjusteOtrosOpv/)
+    assert.match(drawerSource, /Total Otros OPV:/)
+    assert.doesNotMatch(drawerSource, /<Label>Otros \/ Otros \(Manual\)/)
     assert.match(typesSource, /data:\s*GestionAutomaticosApiData/)
 })
 

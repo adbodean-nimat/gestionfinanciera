@@ -26,7 +26,7 @@ const requiredManualFields: Array<{
 }> = [
     { field: 'bancos', label: 'Bancos' },
     { field: 'bancosDescubierto', label: 'Bancos descubierto' },
-    { field: 'opvOtros', label: 'OPV / Otros' },
+    { field: 'opvOtros', label: 'Otros / Otros (Manual)' },
     { field: 'otrosPagosProyectados', label: 'Otros pagos / Impuestos proyectados' },
     { field: 'anticipos', label: 'Anticipos proveedores' },
     { field: 'acopiosEspeciales', label: 'Acopios proveedores' },
@@ -295,7 +295,10 @@ export function useGestionDrawer() {
 
             applyingData = true
             Object.assign(automaticos, registro.automaticos)
-            if (registro.automaticos.otrosOpv !== null) {
+            if (
+                manuales.opvOtros === null &&
+                registro.automaticos.otrosOpv !== null
+            ) {
                 manuales.opvOtros = registro.automaticos.otrosOpv
             }
             if (

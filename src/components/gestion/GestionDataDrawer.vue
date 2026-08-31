@@ -43,6 +43,7 @@ const emit = defineEmits<{
 
 const open = ref(false)
 const showAjusteCaja = ref(false)
+const showAjusteOtrosOpv = ref(false)
 const showAjusteProveedores = ref(false)
 const dateDraft = ref('')
 
@@ -132,6 +133,7 @@ function closeDrawer() {
 
     resetDrawer()
     showAjusteCaja.value = false
+    showAjusteOtrosOpv.value = false
     showAjusteProveedores.value = false
     Object.keys(moneyErrors).forEach((field) => {
         delete moneyErrors[field as MoneyField]
@@ -147,6 +149,18 @@ function enableAjusteCaja() {
 function removeAjusteCaja() {
     manuales.ajusteCaja = null
     showAjusteCaja.value = false
+}
+
+function enableAjusteOtrosOpv() {
+    showAjusteOtrosOpv.value = true
+    if (manuales.opvOtros === null) {
+        manuales.opvOtros = automaticos.otrosOpv ?? 0
+    }
+}
+
+function removeAjusteOtrosOpv() {
+    manuales.opvOtros = null
+    showAjusteOtrosOpv.value = false
 }
 
 function enableAjusteProveedores() {
@@ -197,12 +211,19 @@ const lastSyncedAt = computed(() =>
     displayDateTime(sincronizadoEn.value)
 )
 
+const ajusteOtrosOpv = computed(() => {
+    if (manuales.opvOtros === null || automaticos.otrosOpv === null) return null
+    return manuales.opvOtros - automaticos.otrosOpv
+})
+
 watch(existingRecord, (record) => {
     showAjusteCaja.value = record?.manuales?.ajusteCaja !== null &&
         record?.manuales?.ajusteCaja !== undefined
     showAjusteProveedores.value =
         record?.manuales?.ajusteProveedoresAVencer !== null &&
         record?.manuales?.ajusteProveedoresAVencer !== undefined
+    showAjusteOtrosOpv.value = record?.manuales?.opvOtros !== null &&
+        record?.manuales?.opvOtros !== undefined
 })
 
 watch(
@@ -394,9 +415,49 @@ watch(
                                 <div class="rounded-lg border p-3">
                                     <p class="text-xs text-muted-foreground">Otros OPV Plataforma</p>
                                     <p class="text-lg font-semibold">{{ formatCurrency(automaticos.otrosOpv) }}</p>
-                                    <p class="mt-1 text-xs text-muted-foreground">
-                                        Se precarga en OPV / Otros y puede ajustarse manualmente.
-                                    </p>
+
+                                    <Button
+                                        v-if="!showAjusteOtrosOpv"
+                                        variant="ghost"
+                                        size="sm"
+                                        class="mt-2 px-0"
+                                        :disabled="isBusy"
+                                        @click="enableAjusteOtrosOpv"
+                                    >
+                                        <Plus class="mr-1 h-4 w-4" />
+                                        Agregar ajuste
+                                    </Button>
+
+                                    <div v-else class="mt-3 space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <Input
+                                                :model-value="moneyInputValue(manuales.opvOtros)"
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                placeholder="Importe manual"
+                                                :disabled="isBusy"
+                                                @update:model-value="updateMoney('opvOtros', String($event))"
+                                            />
+
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                :disabled="isBusy"
+                                                @click="removeAjusteOtrosOpv"
+                                            >
+                                                <Trash2 class="h-4 w-4" />
+                                            </Button>
+                                        </div>
+
+                                        <div class="rounded-md bg-muted p-2 text-xs">
+                                            <div>Valor Plataforma: {{ formatCurrency(automaticos.otrosOpv) }}</div>
+                                            <div>Ajuste manual: {{ formatCurrency(ajusteOtrosOpv) }}</div>
+                                            <div class="font-semibold">
+                                                Total Otros OPV: {{ formatCurrency(manuales.opvOtros) }}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="rounded-lg border p-3">
@@ -517,21 +578,6 @@ watch(
                                     />
                                     <p class="text-xs text-muted-foreground">
                                         Se carga positivo y el cálculo lo resta.
-                                    </p>
-                                </div>
-
-                                <div class="space-y-2">
-                                    <Label>OPV / Otros (manual) <span class="text-destructive">*</span></Label>
-                                    <Input
-                                        :model-value="moneyInputValue(manuales.opvOtros)"
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        :disabled="isBusy || !hasDate"
-                                        @update:model-value="updateMoney('opvOtros', String($event))"
-                                    />
-                                    <p class="text-xs text-muted-foreground">
-                                        Usá este campo para ajustar o cargar el importe si Plataforma no lo informa.
                                     </p>
                                 </div>
 
