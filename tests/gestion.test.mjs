@@ -98,19 +98,21 @@ test('los gráficos conservan null y explican los datos faltantes', async () => 
     assert.match(dashboardSource, /datos faltantes se muestran como huecos/i)
 })
 
-test('el gráfico de ventas netas no incluye cobranzas ni inventa faltantes', async () => {
+test('el gráfico de proyecciones compara cobranzas y obligaciones con líneas', async () => {
     const dashboardSource = await source('src/views/GestionDashboardShadcn.vue')
-    const salesChart = dashboardSource.match(
-        /<CardTitle class="shrink-0">\s*Ventas netas[\s\S]*?<\/Card>/
+    const projectionsChart = dashboardSource.match(
+        /<CardTitle class="shrink-0">\s*Cobranzas y Obligaciones proyectadas[\s\S]*?<\/Card>/
     )?.[0] ?? ''
 
-    assert.match(dashboardSource, /const hayVentasNetas = computed/)
-    assert.match(dashboardSource, /item\.ventasNetas !== null/)
-    assert.match(salesChart, /:y="yVentasNetas"/)
-    assert.match(salesChart, /:config="ventasNetasChartConfig"/)
-    assert.match(salesChart, /No hay ventas netas disponibles/)
-    assert.doesNotMatch(salesChart, /Cobranzas/)
-    assert.doesNotMatch(dashboardSource, /VisGroupedBar/)
+    assert.match(dashboardSource, /const hayProyecciones = computed/)
+    assert.match(dashboardSource, /item\.cobranzasProyectadas !== null/)
+    assert.match(dashboardSource, /item\.compromisosProyectados !== null/)
+    assert.match(projectionsChart, /:y="yCobranzasProyectadas"/)
+    assert.match(projectionsChart, /:y="yCompromisosProyectados"/)
+    assert.match(projectionsChart, /:config="proyeccionesChartConfig"/)
+    assert.match(projectionsChart, /No hay proyecciones disponibles/)
+    assert.equal((projectionsChart.match(/<VisLine/g) ?? []).length, 2)
+    assert.doesNotMatch(projectionsChart, /VisStackedBar/)
 })
 
 test('CMV por día usa una configuración editable y no inventa ventas faltantes', async () => {
@@ -175,21 +177,15 @@ test('Resumen del día conserva el desglose de seis indicadores junto a Días de
     assert.match(summarySection, /Caja[\s\S]*?Bancos[\s\S]*?Valores[\s\S]*?Fondos/)
 })
 
-test('el gráfico principal usa cobranzas proyectadas en datos, leyenda y tooltip', async () => {
+test('el gráfico principal muestra por día solamente disponibilidades y pasivos', async () => {
     const dashboardSource = await source('src/views/GestionDashboardShadcn.vue')
 
     assert.match(
         dashboardSource,
-        /Disponibilidades, Pasivos y Cobranzas proyectadas/
+        /Disponibilidades y Pasivos/
     )
     assert.match(dashboardSource, /:y="yDisponibilidades"/)
     assert.match(dashboardSource, /:y="yTotalPasivos"/)
-    assert.match(dashboardSource, /:y="yCobranzasProyectadas"/)
-    assert.match(
-        dashboardSource,
-        /const yCobranzasProyectadas = \(d: GestionDashboard\) => d\.cobranzasProyectadas\b/
-    )
-    assert.doesNotMatch(dashboardSource, /:y="yCompromisosProyectados"/)
     assert.match(
         dashboardSource,
         /const flujoChartConfig = \{[\s\S]*?totalDisponibilidades:\s*\{[\s\S]*?label:\s*'Disponibilidades'/
@@ -198,15 +194,17 @@ test('el gráfico principal usa cobranzas proyectadas en datos, leyenda y toolti
         dashboardSource,
         /const flujoChartConfig = \{[\s\S]*?\n\s{4}disponibilidades:\s*\{/
     )
-    assert.match(
-        dashboardSource,
-        /cobranzasProyectadas:\s*\{[\s\S]*?label:\s*'Cobranzas proyectadas'/
-    )
-    assert.match(dashboardSource, /name:\s*'Cobranzas proyectadas'/)
-
     const mainChartHeader = dashboardSource.match(
-        /Disponibilidades, Pasivos y Cobranzas proyectadas[\s\S]*?<\/CardHeader>/
+        /Disponibilidades y Pasivos[\s\S]*?<\/CardHeader>/
     )?.[0] ?? ''
+    const mainChart = dashboardSource.match(
+        /<CardTitle class="shrink-0">\s*Disponibilidades y Pasivos[\s\S]*?<\/Card>/
+    )?.[0] ?? ''
+    assert.doesNotMatch(mainChart, /:y="yCobranzasProyectadas"/)
+    assert.doesNotMatch(mainChart, /:y="yCompromisosProyectados"/)
+    assert.match(mainChart, /:tick-format="getDayXAxisLabel"/)
+    assert.match(mainChart, /filteredData\[value\]\?\.fecha/)
+    assert.doesNotMatch(mainChart, /filteredData\[value\]\?\.semana/)
     assert.match(dashboardSource, />\s*Tendencias\s*</)
     assert.match(
         dashboardSource,

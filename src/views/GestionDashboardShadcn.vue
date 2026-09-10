@@ -186,13 +186,12 @@ const chartColors = {
     disponibilidades: '#2563eb',
     totalPasivos: '#dc2626',
     cobranzasProyectadas: '#16a34a',
+    compromisosProyectados: '#f97316',
 
     caja: '#2563eb',
     bancos: '#16a34a',
     valores: '#f97316',
     fondosFci: '#7c3aed',
-
-    ventasNetas: '#0f766e',
 }
 
 const flujoChartConfig = {
@@ -203,10 +202,6 @@ const flujoChartConfig = {
     totalPasivos: {
         label: 'Total pasivos',
         color: chartColors.totalPasivos,
-    },
-    cobranzasProyectadas: {
-        label: 'Cobranzas proyectadas',
-        color: chartColors.cobranzasProyectadas,
     },
 } satisfies ChartConfig
 
@@ -229,17 +224,20 @@ const composicionChartConfig = {
     },
 } satisfies ChartConfig
 
-const ventasNetasChartConfig = {
-    ventasNetas: {
-        label: 'Ventas netas',
-        color: chartColors.ventasNetas,
+const proyeccionesChartConfig = {
+    cobranzasProyectadas: {
+        label: 'Cobranzas proyectadas',
+        color: chartColors.cobranzasProyectadas,
+    },
+    compromisosProyectados: {
+        label: 'Obligaciones proyectadas',
+        color: chartColors.compromisosProyectados,
     },
 } satisfies ChartConfig
 
 const legendFlujoProyectado = [
     { name: 'Disponibilidades', color: chartColors.disponibilidades },
     { name: 'Total pasivos', color: chartColors.totalPasivos },
-    { name: 'Cobranzas proyectadas', color: chartColors.cobranzasProyectadas },
 ]
 
 const legendCajaBancosValoresFci = [
@@ -249,16 +247,22 @@ const legendCajaBancosValoresFci = [
     { name: 'Fondos', color: chartColors.fondosFci },
 ]
 
-const hayVentasNetas = computed(() =>
+const hayProyecciones = computed(() =>
     filteredData.value.some(
         (item) =>
-            item.ventasNetas !== null &&
-            item.ventasNetas !== undefined
+            (item.cobranzasProyectadas !== null &&
+                item.cobranzasProyectadas !== undefined) ||
+            (item.compromisosProyectados !== null &&
+                item.compromisosProyectados !== undefined)
     )
 )
 
-const legendVentasNetas = [
-    { name: 'Ventas netas', color: chartColors.ventasNetas },
+const legendProyecciones = [
+    { name: 'Cobranzas proyectadas', color: chartColors.cobranzasProyectadas },
+    {
+        name: 'Obligaciones proyectadas',
+        color: chartColors.compromisosProyectados,
+    },
 ]
 
 const x = (_: GestionDashboard, index: number) => index
@@ -266,13 +270,14 @@ const x = (_: GestionDashboard, index: number) => index
 const yDisponibilidades = (d: GestionDashboard) => d.totalDisponibilidades
 const yTotalPasivos = (d: GestionDashboard) => d.totalPasivos
 const yCobranzasProyectadas = (d: GestionDashboard) => d.cobranzasProyectadas
+const yCompromisosProyectados = (d: GestionDashboard) =>
+    d.compromisosProyectados
 
 const yCaja = (d: GestionDashboard) => d.cajaFinal
 const yBancos = (d: GestionDashboard) => d.bancos
 const yValores = (d: GestionDashboard) => d.valores
 const yFondos = (d: GestionDashboard) => d.fondosFci
 
-const yVentasNetas = (d: GestionDashboard) => d.ventasNetas
 const calcularCmvPorDia = (ventasNetas: number | null | undefined) =>
     ventasNetas === null || ventasNetas === undefined
         ? null
@@ -287,6 +292,17 @@ function getXAxisLabel(value: number | Date) {
     }
 
     return filteredData.value[value]?.semana ?? ''
+}
+
+function getDayXAxisLabel(value: number | Date) {
+    if (value instanceof Date) {
+        return ''
+    }
+
+    const fecha = filteredData.value[value]?.fecha
+    if (!fecha) return ''
+
+    return formatDate(fecha).slice(0, 5)
 }
 
 function currencyTooltip(value: number) {
@@ -995,16 +1011,15 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
     <CardHeader class="px-4">
         <div class="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
             <CardTitle class="shrink-0">
-                Disponibilidades, Pasivos y Cobranzas proyectadas
+                Disponibilidades y Pasivos
             </CardTitle>
 
             <CardDescription
                 class="min-w-0 truncate"
-                title="Comparación entre disponibilidades actuales, total de pasivos actuales y cobranzas proyectadas. Los datos faltantes se muestran como huecos, no como cero."
+                title="Comparación diaria entre disponibilidades actuales y total de pasivos actuales. Los datos faltantes se muestran como huecos, no como cero."
             >
-                Comparación entre disponibilidades actuales, total de pasivos actuales
-                y cobranzas proyectadas. Los datos faltantes se muestran como huecos,
-                no como cero.
+                Comparación diaria entre disponibilidades actuales y total de pasivos
+                actuales. Los datos faltantes se muestran como huecos, no como cero.
             </CardDescription>
         </div>
     </CardHeader>
@@ -1030,13 +1045,7 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
                         :color="chartColors.totalPasivos"
                     />
 
-                    <VisLine
-                        :x="x"
-                        :y="yCobranzasProyectadas"
-                        :color="chartColors.cobranzasProyectadas"
-                    />
-
-                    <VisAxis type="x" :tick-format="getXAxisLabel" />
+                    <VisAxis type="x" :tick-format="getDayXAxisLabel" />
                     <VisAxis type="y" :tick-format="currencyTooltip" />
 
                     <ChartTooltip />
@@ -1048,13 +1057,13 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
                                     return ''
                                 }
 
-                                return filteredData[value]?.semana ?? ''
+                                const fecha = filteredData[value]?.fecha
+                                return fecha ? formatDate(fecha) : ''
                             },
                         })"
                         :color="[
                             chartColors.disponibilidades,
                             chartColors.totalPasivos,
-                            chartColors.cobranzasProyectadas,
                         ]"
                     />
                 </VisXYContainer>
@@ -1129,30 +1138,36 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
             <Card class="gap-2 py-2">
     <CardHeader class="flex min-w-0 flex-col gap-0.5 px-4 sm:flex-row sm:items-baseline sm:gap-2">
         <CardTitle class="shrink-0">
-            Ventas netas
+            Cobranzas y Obligaciones proyectadas
         </CardTitle>
 
         <CardDescription class="min-w-0 truncate">
-            Evolución de las ventas netas durante el período seleccionado.
-            <template v-if="!hayVentasNetas">
-                No hay ventas netas disponibles para este período.
+            Cobranzas proyectadas frente a proveedores a vencer y otros pagos proyectados.
+            <template v-if="!hayProyecciones">
+                No hay proyecciones disponibles para este período.
             </template>
         </CardDescription>
     </CardHeader>
 
     <CardContent class="space-y-2 px-4">
-        <VisBulletLegend :items="legendVentasNetas" />
+        <VisBulletLegend :items="legendProyecciones" />
 
         <div class="h-[170px]">
             <ChartContainer
-                :config="ventasNetasChartConfig"
+                :config="proyeccionesChartConfig"
                 class="h-full w-full"
             >
                 <VisXYContainer :data="filteredData" :height="160">
-                    <VisStackedBar
+                    <VisLine
                         :x="x"
-                        :y="yVentasNetas"
-                        :color="chartColors.ventasNetas"
+                        :y="yCobranzasProyectadas"
+                        :color="chartColors.cobranzasProyectadas"
+                    />
+
+                    <VisLine
+                        :x="x"
+                        :y="yCompromisosProyectados"
+                        :color="chartColors.compromisosProyectados"
                     />
 
                     <VisAxis type="x" :tick-format="getXAxisLabel" />
@@ -1161,7 +1176,7 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
                     <ChartTooltip />
 
                     <ChartCrosshair
-                        :template="componentToString(ventasNetasChartConfig, ChartTooltipContent, {
+                        :template="componentToString(proyeccionesChartConfig, ChartTooltipContent, {
                             labelFormatter(value: number | Date) {
                                 if (value instanceof Date) {
                                     return ''
@@ -1170,7 +1185,10 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
                                 return filteredData[value]?.semana ?? ''
                             },
                         })"
-                        :color="[chartColors.ventasNetas]"
+                        :color="[
+                            chartColors.cobranzasProyectadas,
+                            chartColors.compromisosProyectados,
+                        ]"
                     />
                 </VisXYContainer>
             </ChartContainer>
