@@ -46,6 +46,34 @@ test('el mapper principal aplana el registro mediante spreads', async () => {
     assert.match(mapperSource, /function mapLegacyMockRow/)
 })
 
+test('el gráfico usa caja plataforma más el ajuste manual recalculado', async () => {
+    const mapperSource = await source('src/mappers/gestion.mapper.ts')
+    const dashboardSource = await source('src/views/GestionDashboardShadcn.vue')
+    const automaticos = {
+        ...emptyAutomaticos(),
+        caja: 82500013,
+    }
+    const manuales = {
+        ...emptyManuales(),
+        ajusteCaja: 12565080,
+    }
+
+    assert.equal(calcularGestion(automaticos, manuales).cajaFinal, 95065093)
+    assert.match(
+        mapperSource,
+        /dashboard\.cajaFinal\s*=\s*calculadosActuales\.cajaFinal/
+    )
+    assert.match(dashboardSource, /const yCaja = .*=> d\.cajaFinal/)
+    assert.match(
+        dashboardSource,
+        /const composicionChartConfig = \{[\s\S]*?cajaFinal:\s*\{[\s\S]*?label:\s*'Caja'/
+    )
+    assert.doesNotMatch(
+        dashboardSource,
+        /const composicionChartConfig = \{[\s\S]*?\n\s{4}caja:\s*\{/
+    )
+})
+
 test('la semana comienza en la fecha elegida y termina seis días después con año', async () => {
     const { buildPeriodoEtiqueta } = await import('../src/lib/gestionPeriod.ts')
 

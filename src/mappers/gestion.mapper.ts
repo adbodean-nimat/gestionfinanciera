@@ -34,6 +34,7 @@ export function mapGestionRegistroToDashboard(
     dashboard.acopioCierreMes =
         registro.manuales.acopioCierreMes ??
         registro.automaticos.acopioCierreMes
+    dashboard.cajaFinal = calculadosActuales.cajaFinal
     dashboard.totalPasivos = calculadosActuales.totalPasivos
     dashboard.liquidezNeta =
         dashboard.totalDisponibilidades === null ||

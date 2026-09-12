@@ -206,7 +206,7 @@ const flujoChartConfig = {
 } satisfies ChartConfig
 
 const composicionChartConfig = {
-    caja: {
+    cajaFinal: {
         label: 'Caja',
         color: chartColors.caja,
     },
