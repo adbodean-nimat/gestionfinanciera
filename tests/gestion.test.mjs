@@ -180,7 +180,7 @@ test('Resumen del día muestra los otros datos y calcula días de stock', async 
 
     assert.match(
         dashboardSource,
-        /current\.stockCostoReposicion\s*\/\s*cmvPorDia/
+        /calcularDiasStock\(\s*current\.stockCostoReposicion,\s*current\.ventasNetas\s*\)/
     )
     assert.match(dashboardSource, /v-for="dato in otrosDatosDelDia"/)
     assert.match(dashboardSource, /:aria-expanded="isOtrosDatosOpen"/)
@@ -242,6 +242,58 @@ test('el gráfico principal muestra por día solamente disponibilidades y pasivo
         mainChartHeader,
         /v-for="range in \['6', '12', '24', '52'\]"/
     )
+})
+
+test('el tooltip de Caja, Bancos, Valores y Fondos muestra importes y tiene más ancho', async () => {
+    const dashboardSource = await source('src/views/GestionDashboardShadcn.vue')
+    const chart = dashboardSource.match(
+        /<CardTitle class="shrink-0">\s*Caja, Bancos, Valores y Fondos[\s\S]*?<\/Card>/
+    )?.[0] ?? ''
+
+    assert.match(chart, /class:\s*'min-w-\[10rem\]'/)
+    assert.match(chart, /valueFormatter:\s*currencyTooltip/)
+})
+
+test('los demás gráficos también muestran tooltips monetarios con más ancho', async () => {
+    const dashboardSource = await source('src/views/GestionDashboardShadcn.vue')
+
+    for (const config of ['flujoChartConfig', 'proyeccionesChartConfig']) {
+        const tooltip = dashboardSource.match(
+            new RegExp(`componentToString\\(${config}, ChartTooltipContent, \\{[\\s\\S]*?\\}\\)`)
+        )?.[0] ?? ''
+
+        assert.match(tooltip, /class:\s*'min-w-\[10rem\]'/)
+        assert.match(tooltip, /valueFormatter:\s*currencyTooltip/)
+    }
+})
+
+test('Tendencias incluye la evolución de Días de stock', async () => {
+    const dashboardSource = await source('src/views/GestionDashboardShadcn.vue')
+    const chart = dashboardSource.match(
+        /<CardTitle class="shrink-0">\s*Días de stock[\s\S]*?<\/Card>/
+    )?.[0] ?? ''
+
+    assert.match(
+        dashboardSource,
+        /const calcularDiasStock = \([\s\S]*?stockCostoReposicion \/ cmvPorDia/
+    )
+    assert.match(dashboardSource, /const diasStockTrendData = computed/)
+    assert.match(chart, /:data="diasStockTrendData"/)
+    assert.match(chart, /:y="yDiasStock"/)
+    assert.match(chart, /valueFormatter:\s*daysTooltip/)
+    assert.match(chart, /Los datos faltantes se muestran como huecos/)
+})
+
+test('Tendencias acomoda los cuatro gráficos en dos columnas y dos filas', async () => {
+    const dashboardSource = await source('src/views/GestionDashboardShadcn.vue')
+    const trendsSection = dashboardSource.match(
+        /<section\s+id="tendencias"[\s\S]*?<Card id="detalle"/
+    )?.[0] ?? ''
+
+    assert.match(trendsSection, /xl:grid-cols-2/)
+    assert.equal((trendsSection.match(/<Card class="gap-2 py-2">/g) ?? []).length, 4)
+    assert.doesNotMatch(trendsSection, /xl:col-span-2/)
+    assert.equal((trendsSection.match(/class="h-\[170px\]"/g) ?? []).length, 4)
 })
 
 test('el Drawer muestra los automáticos y calculados requeridos', async () => {

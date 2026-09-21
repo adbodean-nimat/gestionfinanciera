@@ -187,6 +187,7 @@ const chartColors = {
     totalPasivos: '#dc2626',
     cobranzasProyectadas: '#16a34a',
     compromisosProyectados: '#f97316',
+    diasStock: '#7c3aed',
 
     caja: '#2563eb',
     bancos: '#16a34a',
@@ -235,6 +236,13 @@ const proyeccionesChartConfig = {
     },
 } satisfies ChartConfig
 
+const diasStockChartConfig = {
+    diasStock: {
+        label: 'Días de stock',
+        color: chartColors.diasStock,
+    },
+} satisfies ChartConfig
+
 const legendFlujoProyectado = [
     { name: 'Disponibilidades', color: chartColors.disponibilidades },
     { name: 'Total pasivos', color: chartColors.totalPasivos },
@@ -265,6 +273,10 @@ const legendProyecciones = [
     },
 ]
 
+const legendDiasStock = [
+    { name: 'Días de stock', color: chartColors.diasStock },
+]
+
 const x = (_: GestionDashboard, index: number) => index
 
 const yDisponibilidades = (d: GestionDashboard) => d.totalDisponibilidades
@@ -283,6 +295,33 @@ const calcularCmvPorDia = (ventasNetas: number | null | undefined) =>
         ? null
         : (ventasNetas * (cmvConfig.value.porcentaje / 100)) /
           cmvConfig.value.diasLaborales
+
+const calcularDiasStock = (
+    stockCostoReposicion: number | null | undefined,
+    ventasNetas: number | null | undefined
+) => {
+    const cmvPorDia = calcularCmvPorDia(ventasNetas)
+
+    return stockCostoReposicion === null ||
+        stockCostoReposicion === undefined ||
+        cmvPorDia === null ||
+        cmvPorDia === 0
+        ? null
+        : stockCostoReposicion / cmvPorDia
+}
+
+const diasStockTrendData = computed(() =>
+    filteredData.value.map((item) => ({
+        ...item,
+        diasStock: calcularDiasStock(
+            item.stockCostoReposicion,
+            item.ventasNetas
+        ),
+    }))
+)
+
+type DiasStockTrendItem = (typeof diasStockTrendData.value)[number]
+const yDiasStock = (d: DiasStockTrendItem) => d.diasStock
 
 const yCajaBancosValoresFci = [yCaja, yBancos, yValores, yFondos]
 
@@ -307,6 +346,10 @@ function getDayXAxisLabel(value: number | Date) {
 
 function currencyTooltip(value: number) {
     return formatCurrency(value)
+}
+
+function daysTooltip(value: number) {
+    return `${formatNumber(value)} días`
 }
 
 function formatDate(fecha: string) {
@@ -500,24 +543,17 @@ const otrosDatosDelDia = computed(() => {
 
     if (!current) return []
 
-    const cmvPorDia = calcularCmvPorDia(current.ventasNetas)
-    const cmvPorDiaAnterior = calcularCmvPorDia(prior?.ventasNetas)
     const perteneceAlMismoMes =
         prior !== undefined &&
         current.fecha.slice(0, 7) === prior.fecha.slice(0, 7)
-    const diasStock =
-        current.stockCostoReposicion === null ||
-        cmvPorDia === null ||
-        cmvPorDia === 0
-            ? null
-            : current.stockCostoReposicion / cmvPorDia
-    const diasStockAnterior =
-        prior?.stockCostoReposicion === null ||
-        prior?.stockCostoReposicion === undefined ||
-        cmvPorDiaAnterior === null ||
-        cmvPorDiaAnterior === 0
-            ? null
-            : prior.stockCostoReposicion / cmvPorDiaAnterior
+    const diasStock = calcularDiasStock(
+        current.stockCostoReposicion,
+        current.ventasNetas
+    )
+    const diasStockAnterior = calcularDiasStock(
+        prior?.stockCostoReposicion,
+        prior?.ventasNetas
+    )
 
     return [
         {
@@ -571,7 +607,7 @@ const otrosDatosDelDia = computed(() => {
         {
             title: 'Acopios proveedores',
             value: formatCurrency(current.acopiosEspeciales),
-            description: 'Lote Cert, Cormela y La Postrera sin IVA',
+            description: 'Later Cer, Cormela y La Pastoriza sin IVA',
             comparison: buildCurrencyComparison(
                 current.acopiosEspeciales,
                 prior?.acopiosEspeciales,
@@ -884,7 +920,7 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
             </div>
 
         </section>
-
+        <Separator />
         <section id="proyeccion" v-if="dashboardData.length" class="scroll-mt-24 space-y-3">
             <div class="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
                 <h2 class="text-lg font-semibold tracking-tight">Proyección semanal</h2>
@@ -1007,7 +1043,7 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
             </div>
 
             <div class="grid min-w-0 gap-3 xl:grid-cols-2 [&>*]:min-w-0">
-           <Card class="gap-2 py-2 xl:col-span-2">
+           <Card class="gap-2 py-2">
     <CardHeader class="px-4">
         <div class="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
             <CardTitle class="shrink-0">
@@ -1027,12 +1063,12 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
     <CardContent class="space-y-2 px-4">
         <VisBulletLegend :items="legendFlujoProyectado" />
 
-        <div class="h-[210px]">
+        <div class="h-[170px]">
             <ChartContainer
                 :config="flujoChartConfig"
                 class="h-full w-full"
             >
-                <VisXYContainer :data="filteredData" :height="200">
+                <VisXYContainer :data="filteredData" :height="160">
                     <VisLine
                         :x="x"
                         :y="yDisponibilidades"
@@ -1052,6 +1088,8 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
 
                     <ChartCrosshair
                         :template="componentToString(flujoChartConfig, ChartTooltipContent, {
+                           class: 'min-w-[10rem]',
+                           valueFormatter: currencyTooltip,
                            labelFormatter(value: number | Date) {
                                 if (value instanceof Date) {
                                     return ''
@@ -1114,6 +1152,8 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
 
                     <ChartCrosshair
                         :template="componentToString(composicionChartConfig, ChartTooltipContent, {
+                           class: 'min-w-[10rem]',
+                           valueFormatter: currencyTooltip,
                            labelFormatter(value: number | Date) {
                                 if (value instanceof Date) {
                                     return ''
@@ -1177,6 +1217,8 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
 
                     <ChartCrosshair
                         :template="componentToString(proyeccionesChartConfig, ChartTooltipContent, {
+                            class: 'min-w-[10rem]',
+                            valueFormatter: currencyTooltip,
                             labelFormatter(value: number | Date) {
                                 if (value instanceof Date) {
                                     return ''
@@ -1189,6 +1231,61 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
                             chartColors.cobranzasProyectadas,
                             chartColors.compromisosProyectados,
                         ]"
+                    />
+                </VisXYContainer>
+            </ChartContainer>
+        </div>
+    </CardContent>
+</Card>
+
+            <Card class="gap-2 py-2">
+    <CardHeader class="flex min-w-0 flex-col gap-0.5 px-4 sm:flex-row sm:items-baseline sm:gap-2">
+        <CardTitle class="shrink-0">
+            Días de stock
+        </CardTitle>
+
+        <CardDescription
+            class="min-w-0 truncate"
+            title="Evolución del stock a costo de reposición expresado en días de CMV. Los datos faltantes se muestran como huecos."
+        >
+            Stock a costo de reposición dividido por el CMV diario.
+            Los datos faltantes se muestran como huecos.
+        </CardDescription>
+    </CardHeader>
+
+    <CardContent class="space-y-2 px-4">
+        <VisBulletLegend :items="legendDiasStock" />
+
+        <div class="h-[170px]">
+            <ChartContainer
+                :config="diasStockChartConfig"
+                class="h-full w-full"
+            >
+                <VisXYContainer :data="diasStockTrendData" :height="160">
+                    <VisLine
+                        :x="x"
+                        :y="yDiasStock"
+                        :color="chartColors.diasStock"
+                    />
+
+                    <VisAxis type="x" :tick-format="getXAxisLabel" />
+                    <VisAxis type="y" :tick-format="formatNumber" />
+
+                    <ChartTooltip />
+
+                    <ChartCrosshair
+                        :template="componentToString(diasStockChartConfig, ChartTooltipContent, {
+                            class: 'min-w-[10rem]',
+                            valueFormatter: daysTooltip,
+                            labelFormatter(value: number | Date) {
+                                if (value instanceof Date) {
+                                    return ''
+                                }
+
+                                return filteredData[value]?.semana ?? ''
+                            },
+                        })"
+                        :color="chartColors.diasStock"
                     />
                 </VisXYContainer>
             </ChartContainer>
