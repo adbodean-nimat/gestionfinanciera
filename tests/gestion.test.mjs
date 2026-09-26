@@ -6,6 +6,7 @@ import {
     calcularGestion,
     emptyAutomaticos,
     emptyManuales,
+    esGestionGuardada,
     normalizarGestionAutomaticos,
     parseManualMoneyInput,
     resolverCobranzasProyectadas,
@@ -379,11 +380,31 @@ test('el tablero sólo publica registros finalizados al guardar datos completos'
     assert.match(composableSource, /function assertRequiredManualValues\(\)/)
     assert.match(composableSource, /assertFiniteValues\(\)[\s\S]*?assertRequiredManualValues\(\)/)
     assert.match(composableSource, /Completá los datos obligatorios antes de guardar/)
+    assert.match(composableSource, /estado: 'GUARDADO'/)
     assert.match(
         drawerSource,
         /El tablero se actualizará únicamente después de guardarlos\./
     )
     assert.match(drawerSource, /emit\('saved', saved\)/)
+})
+
+test('el estado guardado exige confirmación del backend', () => {
+    const registro = {
+        fecha: '2026-09-25',
+        semana: '25/09 a 01/10',
+        automaticos: emptyAutomaticos(),
+        manuales: { ...emptyManuales(), bancos: 100 },
+        calculados: {},
+        sincronizadoEn: '2026-09-25T10:30:00Z',
+        guardadoEn: null,
+        existeEnPostgres: true,
+    }
+
+    assert.equal(esGestionGuardada(registro), false)
+    assert.equal(esGestionGuardada({ ...registro, estado: 'SINCRONIZADO' }), false)
+    assert.equal(esGestionGuardada({ ...registro, guardadoEn: '2026-09-25T12:00:00Z' }), false)
+    assert.equal(esGestionGuardada({ ...registro, estado: 'SINCRONIZADO', guardadoEn: '2026-09-25T12:00:00Z' }), false)
+    assert.equal(esGestionGuardada({ ...registro, estado: 'GUARDADO' }), true)
 })
 
 test('normaliza la respuesta plana real de sincronización para el Drawer', () => {

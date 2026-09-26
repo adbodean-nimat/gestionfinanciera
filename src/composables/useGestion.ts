@@ -10,6 +10,7 @@ import {
 import { buildPeriodoEtiqueta } from '@/mappers/gestion.mapper'
 import {
     calcularGestion,
+    esGestionGuardada,
     emptyAutomaticos,
     emptyManuales,
     type GestionAutomaticos,
@@ -200,8 +201,7 @@ export function useGestionDrawer() {
         sincronizadoEn.value = registro.sincronizadoEn
         cobranzasProyectadas.value = registro.calculados.cobranzasProyectadas
         applyingData = false
-        steadyStatus.value = registro.existeEnPostgres
-            && missingRequiredManualFields(registro.manuales).length === 0
+        steadyStatus.value = esGestionGuardada(registro)
             ? 'guardado'
             : 'sincronizado'
         takeSnapshot()
@@ -380,6 +380,7 @@ export function useGestionDrawer() {
             semana:
                 existingRecord.value?.semana ??
                 buildPeriodoEtiqueta(selectedDate.value),
+            estado: 'GUARDADO',
             sincronizadoEn: sincronizadoEn.value,
             automaticos: automaticosPersistibles,
             manuales: { ...manuales },
@@ -410,6 +411,11 @@ export function useGestionDrawer() {
             }
 
             applyRegistro(confirmed)
+            if (!esGestionGuardada(confirmed)) {
+                throw new Error(
+                    `El servidor recibió el guardado, pero el registro sigue en estado ${confirmed.estado ?? 'sin confirmar'}. El tablero no se actualizará hasta que el backend lo marque GUARDADO.`
+                )
+            }
             return confirmed
         } catch (cause) {
             saveError.value = messageFrom(cause, 'No se pudieron guardar los datos.')

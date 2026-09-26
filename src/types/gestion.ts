@@ -58,6 +58,7 @@ export interface GestionCalculados {
 export interface GestionRegistro {
     fecha: string
     semana: string
+    estado?: GestionEstado | null
     automaticos: GestionAutomaticos
     manuales: GestionManuales
     calculados: GestionCalculados
@@ -66,9 +67,14 @@ export interface GestionRegistro {
     existeEnPostgres: boolean
 }
 
+export function esGestionGuardada(registro: GestionRegistro): boolean {
+    return registro.estado === 'GUARDADO'
+}
+
 export interface GestionSavePayload {
     fecha: string
     semana: string
+    estado: 'GUARDADO'
     sincronizadoEn: string | null
     automaticos: Omit<GestionAutomaticos, 'otrosOpv'>
     manuales: GestionManuales
