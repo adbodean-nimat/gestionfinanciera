@@ -224,7 +224,7 @@ test('el gráfico principal muestra por día solamente disponibilidades y pasivo
         /const flujoChartConfig = \{[\s\S]*?\n\s{4}disponibilidades:\s*\{/
     )
     const mainChartHeader = dashboardSource.match(
-        /Disponibilidades y Pasivos[\s\S]*?<\/CardHeader>/
+        /<CardTitle class="shrink-0">\s*Disponibilidades y Pasivos[\s\S]*?<\/CardHeader>/
     )?.[0] ?? ''
     const mainChart = dashboardSource.match(
         /<CardTitle class="shrink-0">\s*Disponibilidades y Pasivos[\s\S]*?<\/Card>/
@@ -294,7 +294,7 @@ test('Tendencias acomoda los cuatro gráficos en dos columnas y dos filas', asyn
     assert.match(trendsSection, /xl:grid-cols-2/)
     assert.equal((trendsSection.match(/<Card class="gap-2 py-2">/g) ?? []).length, 4)
     assert.doesNotMatch(trendsSection, /xl:col-span-2/)
-    assert.equal((trendsSection.match(/class="h-\[170px\]"/g) ?? []).length, 4)
+    assert.equal((trendsSection.match(/class="h-\[170px\](?:\s[^"]*)?"/g) ?? []).length, 4)
 })
 
 test('el Drawer muestra los automáticos y calculados requeridos', async () => {

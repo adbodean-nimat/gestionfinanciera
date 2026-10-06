@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ChevronDown, Database, Loader2, RefreshCcw } from 'lucide-vue-next'
+import { ChevronDown, Database, Download, Loader2, RefreshCcw } from 'lucide-vue-next'
 
 import GestionCmvConfigDrawer from '@/components/gestion/GestionCmvConfigDrawer.vue'
 import GestionDataDrawer from '@/components/gestion/GestionDataDrawer.vue'
@@ -61,7 +61,9 @@ import {
 import { formatCurrency, formatNumber } from '@/lib/formatters'
 import { buildGestionAlerts } from '@/lib/gestionAlerts'
 import { setGestionAlerts } from '@/composables/useGestionAlerts'
-import { hasPermission } from '@/services/auth'
+import { authRoles, hasPermission, hasValidSession } from '@/services/auth'
+import { canDownloadGestionReport } from '@/lib/gestionReportAccess'
+import type { GestionReport, ReportChart } from '@/lib/gestionReportPdf'
 
 const props = withDefaults(defineProps<{
     layout?: 'classic' | 'dashboard-01'
@@ -696,6 +698,95 @@ const diasCajaComparison = computed(() =>
 
 const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
 
+const canDownloadReport = computed(() => canDownloadGestionReport(authRoles.value))
+const isDownloadingReport = ref(false)
+const reportError = ref<string | null>(null)
+
+async function downloadReport() {
+    if (!hasValidSession() || !canDownloadReport.value || !latest.value || isHistoryLoading.value || isDownloadingReport.value) return
+
+    isDownloadingReport.value = true
+    reportError.value = null
+    try {
+        const current = latest.value
+        const rows = filteredData.value
+        const dailyLabels = rows.map((row) => formatDate(row.fecha).slice(0, 5))
+        const weeklyLabels = rows.map((row) => row.semana)
+        const series = (label: string, color: string, accessor: (row: GestionDashboard) => number | null) => ({
+            label, color, values: rows.map(accessor),
+        })
+        const charts: ReportChart[] = [
+            {
+                title: 'Disponibilidades y Pasivos', labels: dailyLabels, unit: 'ARS',
+                series: [
+                    series('Disponibilidades', chartColors.disponibilidades, yDisponibilidades),
+                    series('Total pasivos', chartColors.totalPasivos, yTotalPasivos),
+                ],
+            },
+            {
+                title: 'Caja, Bancos, Valores y Fondos', labels: dailyLabels, unit: 'ARS', stacked: true,
+                series: [
+                    series('Caja', chartColors.caja, yCaja),
+                    series('Bancos', chartColors.bancos, yBancos),
+                    series('Valores', chartColors.valores, yValores),
+                    series('Fondos', chartColors.fondosFci, yFondos),
+                ],
+            },
+            {
+                title: 'Cobranzas y Obligaciones proyectadas', labels: weeklyLabels, unit: 'ARS',
+                series: [
+                    series('Cobranzas proyectadas', chartColors.cobranzasProyectadas, yCobranzasProyectadas),
+                    series('Compromisos proyectados', chartColors.compromisosProyectados, yCompromisosProyectados),
+                ],
+            },
+            {
+                title: 'Días de stock', labels: weeklyLabels, unit: 'días',
+                series: [{ label: 'Días de stock', color: chartColors.diasStock, values: diasStockTrendData.value.map(yDiasStock) }],
+            },
+        ]
+        const report: GestionReport = {
+            fecha: formatDate(current.fecha), semana: current.semana,
+            simulated: dataSource.value === 'mock',
+            resumen: [
+                resumenDelDia.value[0]!,
+                pasivosDelDia.value[2]!,
+                {
+                    title: 'Días de caja', value: formatNumber(current.diasCaja),
+                    description: current.diasCaja === null ? 'Sin datos disponibles' : current.diasCaja < 2 ? 'Estado: Alerta' : 'Estado: Normal',
+                    comparison: diasCajaComparison.value,
+                },
+                {
+                    title: 'Caja', value: formatCurrency(current.cajaFinal),
+                    description: 'Caja con el ajuste manual aplicado',
+                },
+                {
+                    title: 'Bancos', value: formatCurrency(current.bancos),
+                    description: 'Saldo actual de bancos',
+                },
+                {
+                    title: 'Valores', value: formatCurrency(current.valores),
+                    description: 'Valores disponibles',
+                },
+                resumenDelDia.value[1]!,
+                pasivosDelDia.value[0]!,
+                pasivosDelDia.value[1]!,
+            ],
+            proyeccion: proyeccionSemanal.value,
+            otros: otrosDatosDelDia.value,
+            charts,
+        }
+        const { createGestionReportPdf, loadGestionLetterhead } = await import('@/lib/gestionReportPdf')
+        const letterhead = await loadGestionLetterhead(`${import.meta.env.BASE_URL}membretada-2025.png`)
+        // La sesión o el rol pueden cambiar mientras se carga el generador.
+        if (!hasValidSession() || !canDownloadReport.value) return
+        createGestionReportPdf(report, letterhead).save(`reporte-gestion-${current.fecha}.pdf`)
+    } catch {
+        reportError.value = 'No se pudo generar el PDF. Intentá descargarlo nuevamente.'
+    } finally {
+        isDownloadingReport.value = false
+    }
+}
+
 </script>
 
 <template>
@@ -728,8 +819,25 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
                     :dias-laborales="cmvConfig.diasLaborales"
                     @save="saveCmvConfig"
                 />
+                <Button
+                    v-if="canDownloadReport"
+                    variant="outline"
+                    size="sm"
+                    :disabled="!latest || isHistoryLoading || isDownloadingReport"
+                    :aria-busy="isDownloadingReport"
+                    @click="downloadReport"
+                >
+                    <Loader2 v-if="isDownloadingReport" class="mr-2 h-4 w-4 animate-spin" />
+                    <Download v-else class="mr-2 h-4 w-4" />
+                    {{ isDownloadingReport ? 'Generando PDF…' : 'Descargar PDF' }}
+                </Button>
             </div>
         </section>
+
+        <Alert v-if="reportError" variant="destructive" role="alert">
+            <AlertTitle>No se pudo descargar el reporte</AlertTitle>
+            <AlertDescription>{{ reportError }}</AlertDescription>
+        </Alert>
 
         <Alert v-if="isHistoryLoading && dashboardData.length === 0">
             <Loader2 class="h-4 w-4 animate-spin" />
@@ -1128,10 +1236,11 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
     <CardContent class="space-y-2 px-4">
         <VisBulletLegend :items="legendCajaBancosValoresFci" />
 
-        <div class="h-[170px]">
+        <div class="h-[170px] overflow-x-auto">
             <ChartContainer
                 :config="composicionChartConfig"
                 class="h-full w-full"
+                :style="{ minWidth: `${filteredData.length * 60 + 100}px` }"
             >
                 <VisXYContainer :data="filteredData" :height="160">
                     <VisStackedBar
@@ -1145,7 +1254,13 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
                         ]"
                     />
 
-                    <VisAxis type="x" :tick-format="getXAxisLabel" />
+                    <VisAxis
+                        type="x"
+                        :tick-format="getDayXAxisLabel"
+                        :tick-values="filteredData.map((_, index) => index)"
+                        :tick-text-hide-overlapping="false"
+                        :min-max-ticks-only-when-width-is-less="0"
+                    />
                     <VisAxis type="y" :tick-format="currencyTooltip" />
 
                     <ChartTooltip />
@@ -1159,7 +1274,8 @@ const criticalAlerts = computed(() => buildGestionAlerts(latest.value))
                                     return ''
                                 }
 
-                                return filteredData[value]?.semana ?? ''
+                                const fecha = filteredData[value]?.fecha
+                                return fecha ? formatDate(fecha) : ''
                             },
                         })"
                         :color="[

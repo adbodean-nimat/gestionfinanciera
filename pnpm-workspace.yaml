@@ -1,5 +1,6 @@
 allowBuilds:
   # Estas dependencias funcionan en el navegador sin ejecutar scripts de instalación.
   # Mantenerlas denegadas reduce la superficie de supply chain en CI/producción.
+  core-js: false
   maplibre-gl: false
   vue-demi: false
