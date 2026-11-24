@@ -523,14 +523,17 @@ test('valores proyectados no modifican totalPasivos ni liquidezNeta', () => {
     assert.equal(withProjection.liquidezNeta, withoutProjection.liquidezNeta)
 })
 
-test('cobranzas proyectadas prioriza backend y luego ventas netas de siete días antes', () => {
-    assert.equal(resolverCobranzasProyectadas(150, 100), 150)
-    assert.equal(resolverCobranzasProyectadas(0, 100), 0)
-    assert.equal(
-        resolverCobranzasProyectadas(null, 174125824.26),
-        174125824.26
-    )
-    assert.equal(resolverCobranzasProyectadas(null, null), null)
+test('cobranzas proyectadas usa cobranzas promedio con IVA sin desplazar otra semana', () => {
+    const automaticos = {
+        ...emptyAutomaticos(),
+        ventasNetas: 267709592,
+        cobranzas: 324802488,
+    }
+    assert.equal(calcularGestion(automaticos, emptyManuales()).cobranzasProyectadas, 324802488)
+    assert.equal(resolverCobranzasProyectadas(324802498), 324802498)
+    assert.equal(resolverCobranzasProyectadas(0), 0)
+    assert.equal(resolverCobranzasProyectadas(null), null)
+    assert.equal(resolverCobranzasProyectadas(undefined), null)
 })
 
 test('Proyección semanal muestra los cinco indicadores solicitados en tarjetas', async () => {
@@ -627,19 +630,18 @@ test('los calculados requeridos conservan null igual que el backend', () => {
     )
 })
 
-test('el resumen usa una grilla equilibrada y sincroniza cobranzas proyectadas', async () => {
+test('drawer y tablero corrigen proyecciones guardadas usando cobranzas promedio', async () => {
     const drawerSource = await source('src/components/gestion/GestionDataDrawer.vue')
     const composableSource = await source('src/composables/useGestion.ts')
 
     assert.match(drawerSource, /sm:grid-cols-2 xl:grid-cols-4/)
+    const mapperSource = await source('src/mappers/gestion.mapper.ts')
     assert.match(
         composableSource,
-        /fechaAnterior\.setUTCDate\(fechaAnterior\.getUTCDate\(\) - 7\)/
+        /\.\.\.existingRecord\.value\.calculados,[\s\S]*?cobranzasProyectadas: localCalculados\.value\.cobranzasProyectadas/
     )
-    assert.match(
-        composableSource,
-        /registroAnterior\?\.automaticos\.ventasNetas \?\? null/
-    )
+    assert.doesNotMatch(composableSource, /registroAnterior|fechaAnterior/)
+    assert.match(mapperSource, /dashboard\.cobranzasProyectadas = calculadosActuales\.cobranzasProyectadas/)
 })
 
 test('la UI diferencia cero de null con el formato monetario existente', () => {

@@ -98,7 +98,6 @@ export function useGestionDrawer() {
     const automaticos = reactive<GestionAutomaticos>(emptyAutomaticos())
     const manuales = reactive<GestionManuales>(emptyManuales())
     const sincronizadoEn = ref<string | null>(null)
-    const cobranzasProyectadas = ref<number | null>(null)
 
     const isCheckingDate = ref(false)
     const isSyncing = ref(false)
@@ -135,14 +134,16 @@ export function useGestionDrawer() {
         return initialSnapshot.value !== '' && serializeCurrent() !== initialSnapshot.value
     })
 
-    const localCalculados = computed<GestionCalculados>(() => ({
-        ...calcularGestion(automaticos, manuales),
-        cobranzasProyectadas: cobranzasProyectadas.value,
-    }))
+    const localCalculados = computed<GestionCalculados>(() =>
+        calcularGestion(automaticos, manuales)
+    )
 
     const calculados = computed<GestionCalculados>(() => {
         if (existingRecord.value && !hasUnsavedChanges.value) {
-            return existingRecord.value.calculados
+            return {
+                ...existingRecord.value.calculados,
+                cobranzasProyectadas: localCalculados.value.cobranzasProyectadas,
+            }
         }
 
         return localCalculados.value
@@ -179,7 +180,6 @@ export function useGestionDrawer() {
         Object.assign(manuales, emptyManuales())
         existingRecord.value = null
         sincronizadoEn.value = null
-        cobranzasProyectadas.value = null
         applyingData = false
     }
 
@@ -199,7 +199,6 @@ export function useGestionDrawer() {
         Object.assign(manuales, registro.manuales)
         existingRecord.value = registro
         sincronizadoEn.value = registro.sincronizadoEn
-        cobranzasProyectadas.value = registro.calculados.cobranzasProyectadas
         applyingData = false
         steadyStatus.value = esGestionGuardada(registro)
             ? 'guardado'
@@ -284,12 +283,7 @@ export function useGestionDrawer() {
 
         try {
             const fecha = selectedDate.value
-            const fechaAnterior = new Date(`${fecha}T00:00:00Z`)
-            fechaAnterior.setUTCDate(fechaAnterior.getUTCDate() - 7)
-            const [registro, registroAnterior] = await Promise.all([
-                getGestionAutomaticos(fecha),
-                getGestionPorFecha(fechaAnterior.toISOString().slice(0, 10)),
-            ])
+            const registro = await getGestionAutomaticos(fecha)
 
             if (selectedDate.value !== fecha) return false
 
@@ -309,8 +303,6 @@ export function useGestionDrawer() {
                     registro.automaticos.acopioCierreMes
             }
             sincronizadoEn.value = registro.sincronizadoEn
-            cobranzasProyectadas.value =
-                registroAnterior?.automaticos.ventasNetas ?? null
             applyingData = false
             steadyStatus.value = 'sincronizado'
             return true

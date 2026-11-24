@@ -5,7 +5,6 @@ import {
     calcularGestion,
     emptyAutomaticos,
     emptyManuales,
-    resolverCobranzasProyectadas,
     type GestionRegistro,
 } from '@/types/gestion'
 
@@ -35,6 +34,7 @@ export function mapGestionRegistroToDashboard(
         registro.manuales.acopioCierreMes ??
         registro.automaticos.acopioCierreMes
     dashboard.cajaFinal = calculadosActuales.cajaFinal
+    dashboard.cobranzasProyectadas = calculadosActuales.cobranzasProyectadas
     dashboard.totalPasivos = calculadosActuales.totalPasivos
     dashboard.liquidezNeta =
         dashboard.totalDisponibilidades === null ||
@@ -48,17 +48,9 @@ export function mapGestionRegistroToDashboard(
 export function mapGestionListadoToDashboard(
     registros: GestionRegistro[]
 ): GestionDashboard[] {
-    const dashboard = registros
+    return registros
         .map(mapGestionRegistroToDashboard)
         .sort((left, right) => left.fecha.localeCompare(right.fecha))
-
-    return dashboard.map((actual, index) => ({
-        ...actual,
-        cobranzasProyectadas: resolverCobranzasProyectadas(
-            actual.cobranzasProyectadas,
-            dashboard[index - 1]?.ventasNetas
-        ),
-    }))
 }
 
 export function mapLegacyMockRow(row: LegacyGestionRecord): GestionRegistro {

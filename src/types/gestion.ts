@@ -180,14 +180,10 @@ export function emptyManuales(): GestionManuales {
 }
 
 export function resolverCobranzasProyectadas(
-    valorBackend: number | null | undefined,
-    ventasNetasSemanaAnterior: number | null | undefined
+    cobranzasPromedio: number | null | undefined
 ): number | null {
-    return (
-        valorBackend ??
-        ventasNetasSemanaAnterior ??
-        null
-    )
+    // El registro ya informa las ventas de la semana anterior con IVA.
+    return cobranzasPromedio ?? null
 }
 
 export type ManualMoneyParseResult =
@@ -298,7 +294,7 @@ export function calcularGestion(
                 ? null
                 : roundAmount(totalDisponibilidades - totalPasivos),
         compromisosProyectados,
-        cobranzasProyectadas: null,
+        cobranzasProyectadas: resolverCobranzasProyectadas(automaticos.cobranzas),
         diasCaja,
     }
 }
