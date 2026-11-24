@@ -705,9 +705,10 @@ watch(
                                     <p class="text-lg font-semibold">{{ formatCurrency(calculados.compromisosProyectados) }}</p>
                                 </div>
 
-                                <div class="rounded-lg border bg-muted/40 p-3">
+                                <div class="rounded-lg border-2 border-dotted border-muted-foreground/50 bg-muted/20 p-3">
                                     <p class="text-xs text-muted-foreground">Cobranzas proyectadas · sólo lectura</p>
                                     <p class="text-lg font-semibold">{{ formatCurrency(calculados.cobranzasProyectadas) }}</p>
+                                    <p class="text-xs text-muted-foreground">Semana anterior</p>
                                 </div>
                             </div>
                         </CardContent>
