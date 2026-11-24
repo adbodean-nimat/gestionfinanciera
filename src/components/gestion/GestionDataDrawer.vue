@@ -706,11 +706,17 @@ watch(
                                 </div>
 
                                 <div class="rounded-lg border-2 border-dotted border-muted-foreground/50 bg-muted/20 p-3">
-                                    <p class="text-xs text-muted-foreground">Cobranzas proyectadas · sólo lectura</p>
+                                    <p
+                                        class="text-xs text-muted-foreground"
+                                        title="Corresponde a las ventas de la semana anterior con IVA."
+                                        aria-describedby="drawer-cobranzas-proyectadas-nota"
+                                    >Cobranzas proyectadas *</p>
                                     <p class="text-lg font-semibold">{{ formatCurrency(calculados.cobranzasProyectadas) }}</p>
-                                    <p class="text-xs text-muted-foreground">Semana anterior</p>
                                 </div>
                             </div>
+                            <p id="drawer-cobranzas-proyectadas-nota" class="mt-3 text-xs text-muted-foreground">
+                                * Corresponde a las ventas de la semana anterior con IVA.
+                            </p>
                         </CardContent>
                     </Card>
                 </div>

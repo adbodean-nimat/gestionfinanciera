@@ -1429,8 +1429,10 @@ async function downloadReport() {
                             <TableHead>Semana</TableHead>
                             <TableHead>Disponibilidades</TableHead>
                             <TableHead>Fondos</TableHead>
-                            <TableHead>Cobranzas promedio</TableHead>
-                            <TableHead>Cobranzas proyectadas</TableHead>
+                            <TableHead
+                                title="Corresponde a las ventas de la semana anterior con IVA."
+                                aria-describedby="cobranzas-proyectadas-nota"
+                            >Cobranzas proyectadas *</TableHead>
                             <TableHead>Prov. a pagar</TableHead>
                             <TableHead>Otros pagos / Impuestos</TableHead>
                             <TableHead>Compromisos</TableHead>
@@ -1444,7 +1446,6 @@ async function downloadReport() {
                             <TableCell>{{ item.semana }}</TableCell>
                             <TableCell>{{ formatCurrency(item.totalDisponibilidades) }}</TableCell>
                             <TableCell>{{ formatCurrency(item.fondosFci) }}</TableCell>
-                            <TableCell>{{ formatCurrency(item.cobranzas) }}</TableCell>
                             <TableCell>{{ formatCurrency(item.cobranzasProyectadas) }}</TableCell>
                             <TableCell>{{ formatCurrency(item.proveedoresAVencerFinal) }}</TableCell>
                             <TableCell>{{ formatCurrency(item.otrosPagosProyectados) }}</TableCell>
@@ -1459,6 +1460,9 @@ async function downloadReport() {
                         </TableRow>
                     </TableBody>
                 </Table>
+                <p id="cobranzas-proyectadas-nota" class="mt-3 text-xs text-muted-foreground">
+                    * Cobranzas proyectadas: corresponde a las ventas de la semana anterior con IVA.
+                </p>
             </CardContent>
         </Card>
 
